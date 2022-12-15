@@ -2,6 +2,8 @@ package com.tungsten.fclcore.download.optifine;
 
 import static com.tungsten.fclcore.util.Lang.getOrDefault;
 
+import android.app.ActivityManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
@@ -142,6 +144,12 @@ public final class OptiFineInstallTask extends Task<Version> {
                         gameRepository.getLibraryFile(version, optiFineLibrary).toString()
                 };
                 int exitCode;
+                boolean listen = true;
+                while (listen) {
+                    if (((ActivityManager) FCLPath.CONTEXT.getSystemService(Context.ACTIVITY_SERVICE)).getRunningAppProcesses().size() == 1) {
+                        listen = false;
+                    }
+                }
                 CountDownLatch latch = new CountDownLatch(1);
                 SocketServer server = new SocketServer("127.0.0.1", ProcessService.PROCESS_SERVICE_PORT, (server1, msg) -> {
                     server1.setResult(msg);
@@ -155,7 +163,7 @@ public final class OptiFineInstallTask extends Task<Version> {
                 FCLPath.CONTEXT.startService(service);
                 server.start();
                 latch.await();
-                exitCode = (int) server.getResult();
+                exitCode = Integer.parseInt((String) server.getResult());
                 if (exitCode != 0)
                     throw new IOException("OptiFine patcher failed, command: " + new CommandBuilder().addAll(Arrays.asList(command)));
             } else {

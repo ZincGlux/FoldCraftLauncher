@@ -8,8 +8,6 @@ import android.widget.CompoundButton;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import androidx.appcompat.widget.LinearLayoutCompat;
-
 import com.tungsten.fcl.R;
 import com.tungsten.fcl.setting.DownloadProviders;
 import com.tungsten.fclcore.download.RemoteVersion;
@@ -19,6 +17,7 @@ import com.tungsten.fclcore.task.Task;
 import com.tungsten.fcllibrary.component.ui.FCLTempPage;
 import com.tungsten.fcllibrary.component.view.FCLCheckBox;
 import com.tungsten.fcllibrary.component.view.FCLImageButton;
+import com.tungsten.fcllibrary.component.view.FCLLinearLayout;
 import com.tungsten.fcllibrary.component.view.FCLProgressBar;
 import com.tungsten.fcllibrary.component.view.FCLUILayout;
 
@@ -51,7 +50,7 @@ public class InstallerVersionPage extends FCLTempPage implements View.OnClickLis
     }
 
     public void create() {
-        LinearLayoutCompat checkBar = findViewById(R.id.bar);
+        FCLLinearLayout checkBar = findViewById(R.id.bar);
         checkBar.setVisibility(DownloadProviders.getDownloadProvider().getVersionListById(libraryId).hasType() ? View.VISIBLE : View.GONE);
 
         checkRelease = findViewById(R.id.release);
@@ -105,37 +104,39 @@ public class InstallerVersionPage extends FCLTempPage implements View.OnClickLis
         refresh.setEnabled(false);
         VersionList<?> currentVersionList = DownloadProviders.getDownloadProvider().getVersionListById(libraryId);
         currentVersionList.refreshAsync(gameVersion).whenComplete((result, exception) -> {
-            if (exception == null) {
-                List<RemoteVersion> items = loadVersions();
+            if (isShowing()) {
+                if (exception == null) {
+                    List<RemoteVersion> items = loadVersions();
 
-                Schedulers.androidUIThread().execute(() -> {
-                    if (currentVersionList.getVersions(gameVersion).isEmpty()) {
-                        Toast.makeText(getContext(), getContext().getString(R.string.download_failed_empty), Toast.LENGTH_SHORT).show();
+                    Schedulers.androidUIThread().execute(() -> {
+                        if (currentVersionList.getVersions(gameVersion).isEmpty()) {
+                            Toast.makeText(getContext(), getContext().getString(R.string.download_failed_empty), Toast.LENGTH_SHORT).show();
+                            listView.setVisibility(View.GONE);
+                            failedRefresh.setVisibility(View.VISIBLE);
+                        } else {
+                            if (items.isEmpty()) {
+                                checkRelease.setChecked(true);
+                                checkSnapShot.setChecked(true);
+                                checkOld.setChecked(true);
+                            } else {
+                                RemoteVersionListAdapter adapter = new RemoteVersionListAdapter(getContext(), (ArrayList<RemoteVersion>) items, listener);
+                                listView.setAdapter(adapter);
+                            }
+                            listView.setVisibility(View.VISIBLE);
+                            failedRefresh.setVisibility(View.GONE);
+                        }
+                        progressBar.setVisibility(View.GONE);
+                        refresh.setEnabled(true);
+                    });
+                } else {
+                    LOG.log(Level.WARNING, "Failed to fetch versions list", exception);
+                    Schedulers.androidUIThread().execute(() -> {
                         listView.setVisibility(View.GONE);
                         failedRefresh.setVisibility(View.VISIBLE);
-                    } else {
-                        if (items.isEmpty()) {
-                            checkRelease.setChecked(true);
-                            checkSnapShot.setChecked(true);
-                            checkOld.setChecked(true);
-                        } else {
-                            RemoteVersionListAdapter adapter = new RemoteVersionListAdapter(getContext(), (ArrayList<RemoteVersion>) items, listener);
-                            listView.setAdapter(adapter);
-                        }
-                        listView.setVisibility(View.VISIBLE);
-                        failedRefresh.setVisibility(View.GONE);
-                    }
-                    progressBar.setVisibility(View.GONE);
-                    refresh.setEnabled(true);
-                });
-            } else {
-                LOG.log(Level.WARNING, "Failed to fetch versions list", exception);
-                Schedulers.androidUIThread().execute(() -> {
-                    listView.setVisibility(View.GONE);
-                    failedRefresh.setVisibility(View.VISIBLE);
-                    progressBar.setVisibility(View.GONE);
-                    refresh.setEnabled(true);
-                });
+                        progressBar.setVisibility(View.GONE);
+                        refresh.setEnabled(true);
+                    });
+                }
             }
 
             System.gc();

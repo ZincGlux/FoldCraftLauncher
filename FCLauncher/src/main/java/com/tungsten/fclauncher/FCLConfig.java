@@ -8,9 +8,11 @@ public class FCLConfig implements Serializable {
 
     public enum Renderer implements Serializable {
         RENDERER_GL4ES("libgl4es.so:libgl4es_egl.so"),
-        RENDERER_ZINK("libGL.so:libEGL.so");
+        RENDERER_ZINK("libGL.so:libEGL.so"),
+        RENDERER_ANGLE("libtinywrapper.so:libEGL_angle.so");
 
         private final String glInfo;
+        private String glVersion;
 
         Renderer(String glInfo) {
             this.glInfo = glInfo;
@@ -26,6 +28,14 @@ public class FCLConfig implements Serializable {
 
         public String getGlInfo() {
             return glInfo;
+        }
+
+        public void setGlVersion(String glVersion) {
+            this.glVersion = glVersion;
+        }
+
+        public String getGlVersion() {
+            return glVersion;
         }
     }
 

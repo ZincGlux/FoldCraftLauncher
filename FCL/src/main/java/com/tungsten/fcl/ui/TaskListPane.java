@@ -177,9 +177,7 @@ public final class TaskListPane extends FCLAdapter {
                 ProgressListNode node = nodes.remove(task);
                 if (node == null)
                     return;
-                Schedulers.androidUIThread().execute(() -> {
-                    node.setThrowable(throwable);
-                });
+                Schedulers.androidUIThread().execute(() -> node.setThrowable(throwable));
             }
 
             @Override
@@ -198,9 +196,7 @@ public final class TaskListPane extends FCLAdapter {
                     stageNodes.stream()
                             .filter(x -> x.stage.equals(task.getStage()))
                             .findAny()
-                            .ifPresent(stageNode -> {
-                                stageNode.setTotal(total);
-                            });
+                            .ifPresent(stageNode -> stageNode.setTotal(total));
                 }
             }
         });
@@ -257,21 +253,21 @@ public final class TaskListPane extends FCLAdapter {
             // @formatter:on
 
             title.setText(message);
-            icon.setBackground(context.getDrawable(R.drawable.ic_baseline_more_horiz_24));
+            icon.setImageDrawable(context.getDrawable(R.drawable.ic_baseline_more_horiz_24));
         }
 
         public void begin() {
             if (started) return;
             started = true;
-            icon.setBackground(context.getDrawable(R.drawable.ic_baseline_arrow_forward_24));
+            icon.setImageDrawable(context.getDrawable(R.drawable.ic_baseline_arrow_forward_24));
         }
 
         public void fail() {
-            icon.setBackground(context.getDrawable(R.drawable.ic_baseline_close_24));
+            icon.setImageDrawable(context.getDrawable(R.drawable.ic_baseline_close_24));
         }
 
         public void succeed() {
-            icon.setBackground(context.getDrawable(R.drawable.ic_baseline_done_24));
+            icon.setImageDrawable(context.getDrawable(R.drawable.ic_baseline_done_24));
         }
 
         public void count() {
@@ -283,6 +279,7 @@ public final class TaskListPane extends FCLAdapter {
             updateCounter(count, total);
         }
 
+        @SuppressLint("DefaultLocale")
         public void updateCounter(int count, int total) {
             if (total > 0)
                 title.setText(String.format("%s - %d/%d", message, count, total));
@@ -299,7 +296,6 @@ public final class TaskListPane extends FCLAdapter {
         private final View parent;
 
         private final FCLProgressBar bar;
-        private final FCLTextView title;
         private final FCLTextView state;
 
         public ProgressListNode(Context context, boolean padding, Task<?> task) {
@@ -309,7 +305,7 @@ public final class TaskListPane extends FCLAdapter {
             }
 
             bar = parent.findViewById(R.id.progress);
-            title = parent.findViewById(R.id.name);
+            FCLTextView title = parent.findViewById(R.id.name);
             state = parent.findViewById(R.id.state);
 
             bar.progressProperty().bind(task.progressProperty());

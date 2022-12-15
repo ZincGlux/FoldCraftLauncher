@@ -5,7 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
-    <androidx.appcompat.widget.LinearLayoutCompat
+    <com.tungsten.fcllibrary.component.view.FCLLinearLayout
+        app:auto_linear_background_tint="true"
         android:id="@+id/item"
         android:background="@drawable/bg_container_white_clickable"
         android:layout_width="match_parent"
@@ -31,6 +32,7 @@
 
             <com.tungsten.fcllibrary.component.view.FCLTextView
                 android:id="@+id/name"
+                android:textSize="14sp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:singleLine="true"
@@ -38,6 +40,7 @@
 
             <com.tungsten.fcllibrary.component.view.FCLTextView
                 android:id="@+id/state"
+                android:textSize="12sp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:singleLine="true"
@@ -68,6 +71,6 @@
             android:src="@drawable/ic_baseline_arrow_forward_24"
             android:id="@+id/select"/>
 
-    </androidx.appcompat.widget.LinearLayoutCompat>
+    </com.tungsten.fcllibrary.component.view.FCLLinearLayout>
 
 </androidx.appcompat.widget.LinearLayoutCompat>

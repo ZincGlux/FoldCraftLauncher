@@ -13,9 +13,9 @@ import androidx.appcompat.widget.LinearLayoutCompat;
 import com.tungsten.fcl.R;
 import com.tungsten.fcl.game.FCLGameRepository;
 import com.tungsten.fcl.setting.Profiles;
+import com.tungsten.fcl.ui.InstallerItem;
 import com.tungsten.fcl.ui.PageManager;
 import com.tungsten.fcl.ui.TaskDialog;
-import com.tungsten.fcl.ui.UIManager;
 import com.tungsten.fcl.util.AndroidUtils;
 import com.tungsten.fcl.util.TaskCancellationAction;
 import com.tungsten.fclcore.download.ArtifactMalformedException;
@@ -148,10 +148,7 @@ public class InstallersPage extends FCLTempPage implements View.OnClickListener 
                 }
 
                 Task<Void> task = builder.buildAsync().whenComplete(any -> Profiles.getSelectedProfile().getRepository().refreshVersions())
-                        .thenRunAsync(Schedulers.androidUIThread(), () -> {
-                            Profiles.getSelectedProfile().setSelectedVersion(name);
-                            UIManager.getInstance().getVersionUI().refresh().start();
-                        });
+                        .thenRunAsync(Schedulers.androidUIThread(), () -> Profiles.getSelectedProfile().setSelectedVersion(name));
 
                 TaskDialog pane = new TaskDialog(getContext(), new TaskCancellationAction(AppCompatDialog::dismiss));
                 pane.setTitle(getContext().getString(R.string.install_new_game));

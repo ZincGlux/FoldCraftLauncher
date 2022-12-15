@@ -9,14 +9,16 @@ import androidx.annotation.Nullable;
 import com.tungsten.fclauncher.FCLConfig;
 import com.tungsten.fclauncher.FCLauncher;
 import com.tungsten.fclauncher.bridge.FCLBridgeCallback;
+import com.tungsten.fclauncher.utils.LogFileUtil;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 
 public class ProcessService extends Service {
 
-    public static final int PROCESS_SERVICE_PORT = 6868;
+    public static final int PROCESS_SERVICE_PORT = 29118;
 
     @Nullable
     @Override
@@ -26,7 +28,7 @@ public class ProcessService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        System.out.println("ProcessService started!");
+        LogFileUtil.getInstance().writeLog("ProcessService started!");
         String[] command = intent.getExtras().getStringArray("command");
         FCLConfig config = new FCLConfig(
                 getApplicationContext(),
@@ -48,25 +50,32 @@ public class ProcessService extends Service {
 
             @Override
             public void onExit(int code) {
-                try {
-                    DatagramSocket socket = new DatagramSocket();
-                    socket.connect(new InetSocketAddress("127.0.0.1", PROCESS_SERVICE_PORT));
-                    byte[] data = (code + "").getBytes();
-                    DatagramPacket packet = new DatagramPacket(data, data.length);
-                    socket.send(packet);
-                    socket.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                android.os.Process.killProcess(android.os.Process.myPid());
+                sendCode(code);
             }
         };
-        FCLauncher.launchAPIInstaller(config, callback);
+        CompletableFuture<Integer> future = FCLauncher.launchAPIInstaller(config, callback);
+        future.whenComplete((integer, throwable) -> sendCode(integer));
+    }
+
+    private void sendCode(int code) {
+        try {
+            DatagramSocket socket = new DatagramSocket();
+            socket.connect(new InetSocketAddress("127.0.0.1", PROCESS_SERVICE_PORT));
+            byte[] data = (code + "").getBytes();
+            DatagramPacket packet = new DatagramPacket(data, data.length);
+            socket.send(packet);
+            socket.close();
+            LogFileUtil.getInstance().writeLog("Code = " + code + ", send the code now!");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        stopSelf();
     }
 
     @Override
     public void onDestroy() {
-        android.os.Process.killProcess(android.os.Process.myPid());
+        LogFileUtil.getInstance().writeLog("Destroy the service now!");
         super.onDestroy();
+        android.os.Process.killProcess(android.os.Process.myPid());
     }
 }

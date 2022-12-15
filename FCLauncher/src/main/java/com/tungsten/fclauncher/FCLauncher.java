@@ -10,6 +10,7 @@ import com.jaredrummler.android.device.DeviceName;
 import com.tungsten.fclauncher.bridge.FCLBridge;
 import com.tungsten.fclauncher.bridge.FCLBridgeCallback;
 import com.tungsten.fclauncher.utils.Architecture;
+import com.tungsten.fclauncher.utils.LogFileUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public class FCLauncher {
 
@@ -28,13 +30,13 @@ public class FCLauncher {
     // Todo : mesa
 
     private static void printTaskTitle(String task) {
-        System.out.println("==================== " + task + " ====================");
+        LogFileUtil.getInstance().writeLog("==================== " + task + " ====================");
     }
 
     private static void logStartInfo(String task) {
         printTaskTitle("Start " + task);
-        System.out.println("Device: " + DeviceName.getDeviceName());
-        System.out.println("Architecture: " + Architecture.archAsString(Architecture.getDeviceArchitecture()));
+        LogFileUtil.getInstance().writeLog("Device: " + DeviceName.getDeviceName());
+        LogFileUtil.getInstance().writeLog("Architecture: " + Architecture.archAsString(Architecture.getDeviceArchitecture()));
     }
 
     private static Map<String, String> readJREReleaseProperties(String javaPath) throws IOException {
@@ -131,16 +133,25 @@ public class FCLauncher {
 
     private static void addRendererEnv(FCLConfig config, HashMap<String, String> envMap) {
         // Todo : mesa env
+        FCLConfig.Renderer renderer = config.getRenderer() == null ? FCLConfig.Renderer.RENDERER_GL4ES : config.getRenderer();
         String nativeDir = config.getContext().getApplicationInfo().nativeLibraryDir;
-        envMap.put("LIBGL_NAME", config.getRenderer().getGlLibName());
-        envMap.put("LIBEGL_NAME", config.getRenderer().getEglLibName());
-        if (config.getRenderer() == FCLConfig.Renderer.RENDERER_GL4ES) {
+        envMap.put("LIBGL_NAME", renderer.getGlLibName());
+        envMap.put("LIBEGL_NAME", renderer.getEglLibName());
+        if (renderer == FCLConfig.Renderer.RENDERER_GL4ES) {
+            if (renderer.getGlVersion() != null) {
+                envMap.put("LIBGL_GL", renderer.getGlVersion());
+            }
             envMap.put("LIBGL_MIPMAP", "3");
             envMap.put("LIBGL_NORMALIZE", "1");
             envMap.put("LIBGL_VSYNC", "1");
             envMap.put("LIBGL_NOINTOVLHACK", "1");
-        }
-        else {
+        } else if (renderer == FCLConfig.Renderer.RENDERER_ANGLE) {
+            envMap.put("LIBGL_ES","3");
+            envMap.put("LIBGL_MIPMAP", "3");
+            envMap.put("LIBGL_NORMALIZE", "1");
+            envMap.put("LIBGL_VSYNC", "1");
+            envMap.put("LIBGL_NOINTOVLHACK", "1");
+        } else {
             envMap.put("LIBGL_DRIVERS_PATH", nativeDir);
             envMap.put("MESA_GL_VERSION_OVERRIDE", "4.6");
             envMap.put("MESA_GLSL_VERSION_OVERRIDE", "460");
@@ -157,7 +168,7 @@ public class FCLauncher {
         }
         printTaskTitle("Env Map");
         for (String key : envMap.keySet()) {
-            System.out.println("Env: " + key + "=" + envMap.get(key));
+            LogFileUtil.getInstance().writeLog("Env: " + key + "=" + envMap.get(key));
             bridge.setenv(key, envMap.get(key));
         }
         printTaskTitle("Env Map");
@@ -206,37 +217,37 @@ public class FCLauncher {
         bridge.dlopen(nativeDir + "/libopenal.so");
 
         // Todo : mesa
-        bridge.dlopen(nativeDir + "/" + config.getRenderer().getGlLibName());
-        bridge.dlopen(nativeDir + "/" + config.getRenderer().getEglLibName());
-        if (config.getRenderer() == FCLConfig.Renderer.RENDERER_ZINK) {
+        FCLConfig.Renderer renderer = config.getRenderer() == null ? FCLConfig.Renderer.RENDERER_GL4ES : config.getRenderer();
+        bridge.dlopen(nativeDir + "/" + renderer.getGlLibName());
+        bridge.dlopen(nativeDir + "/" + renderer.getEglLibName());
+        if (renderer == FCLConfig.Renderer.RENDERER_ZINK) {
             bridge.dlopen(nativeDir + "/libglapi.so");
             bridge.dlopen(nativeDir + "/libexpat.so");
             bridge.dlopen(nativeDir + "/zink_dri.so");
         }
     }
 
-    private static void launch(FCLConfig config, FCLBridge bridge, String task) throws IOException {
+    private static int launch(FCLConfig config, FCLBridge bridge, String task) throws IOException {
         printTaskTitle(task + " Arguments");
         String[] args = rebaseArgs(config);
         for (String arg : args) {
-            System.out.println(task + " argument: " + arg);
+            LogFileUtil.getInstance().writeLog(task + " argument: " + arg);
         }
         bridge.setupJLI();
         bridge.setLdLibraryPath(getLibraryPath(config.getContext(), config.getJavaPath()));
-        System.out.println("Hook exit " + (bridge.setupExitTrap(bridge) == 0 ? "success" : "failed"));
-        System.out.println("OpenJDK exited with code : " + bridge.jliLaunch(args));
+        LogFileUtil.getInstance().writeLog("Hook exit " + (bridge.setupExitTrap(bridge) == 0 ? "success" : "failed"));
+        int exitCode = bridge.jliLaunch(args);
+        LogFileUtil.getInstance().writeLog("OpenJDK exited with code : " + exitCode);
+        return exitCode;
     }
 
     public static FCLBridge launchMinecraft(FCLConfig config) {
 
         // initialize FCLBridge
         FCLBridge bridge = new FCLBridge(null);
-
+        bridge.setLogPath(config.getLogDir() + "/latest_game.log");
         Thread gameThread = new Thread(() -> {
             try {
-                // redirect log path
-                bridge.redirectStdio(config.getLogDir() + "/latest_game.log");
-
                 logStartInfo("Minecraft");
 
                 // env
@@ -249,7 +260,7 @@ public class FCLauncher {
                 setupGraphicAndSoundEngine(config, bridge);
 
                 // set working directory
-                System.out.println("Working directory: " + config.getWorkingDir());
+                LogFileUtil.getInstance().writeLog("Working directory: " + config.getWorkingDir());
                 bridge.chdir(config.getWorkingDir());
 
                 // launch game
@@ -269,11 +280,9 @@ public class FCLauncher {
 
         // initialize FCLBridge
         FCLBridge bridge = new FCLBridge(null);
-
+        bridge.setLogPath(config.getLogDir() + "/latest_java_gui.log");
         Thread javaGUIThread = new Thread(() -> {
             try {
-                // redirect log path
-                bridge.redirectStdio(config.getLogDir() + "/latest_java_gui.log");
 
                 logStartInfo("Java GUI");
 
@@ -287,7 +296,7 @@ public class FCLauncher {
                 setupGraphicAndSoundEngine(config, bridge);
 
                 // set working directory
-                System.out.println("Working directory: " + config.getWorkingDir());
+                LogFileUtil.getInstance().writeLog("Working directory: " + config.getWorkingDir());
                 bridge.chdir(config.getWorkingDir());
 
                 // launch java gui
@@ -302,15 +311,15 @@ public class FCLauncher {
         return bridge;
     }
 
-    public static void launchAPIInstaller(FCLConfig config, FCLBridgeCallback callback) {
+    public static CompletableFuture<Integer> launchAPIInstaller(FCLConfig config, FCLBridgeCallback callback) {
 
         // initialize FCLBridge
         FCLBridge bridge = new FCLBridge(callback);
+        bridge.setLogPath(config.getLogDir() + "/latest_api_installer.log");
+        CompletableFuture<Integer> future = new CompletableFuture<>();
 
         Thread apiInstallerThread = new Thread(() -> {
             try {
-                // redirect log path
-                bridge.redirectStdio(config.getLogDir() + "/latest_api_installer.log");
 
                 logStartInfo("API Installer");
 
@@ -321,17 +330,18 @@ public class FCLauncher {
                 setUpJavaRuntime(config, bridge);
 
                 // set working directory
-                System.out.println("Working directory: " + config.getWorkingDir());
+                LogFileUtil.getInstance().writeLog("Working directory: " + config.getWorkingDir());
                 bridge.chdir(config.getWorkingDir());
 
                 // launch api installer
-                launch(config, bridge, "API Installer");
+                future.complete(launch(config, bridge, "API Installer"));
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
 
         apiInstallerThread.start();
+        return future;
     }
 
 }
