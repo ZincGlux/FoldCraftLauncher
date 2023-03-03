@@ -18,7 +18,10 @@ import com.tungsten.fcllibrary.component.theme.ThemeEngine;
 
 public class FCLSwitch extends SwitchCompat {
 
+    private boolean fromUserOrSystem = false;
     private BooleanProperty visibilityProperty;
+    private BooleanProperty checkProperty;
+    private BooleanProperty disableProperty;
 
     private final IntegerProperty theme = new IntegerPropertyBase() {
 
@@ -55,6 +58,13 @@ public class FCLSwitch extends SwitchCompat {
             return "theme";
         }
     };
+
+    public void addCheckedChangeListener() {
+        setOnCheckedChangeListener((compoundButton, b) -> {
+            fromUserOrSystem = true;
+            checkProperty().set(b);
+        });
+    }
 
     public FCLSwitch(@NonNull Context context) {
         super(context);
@@ -101,5 +111,72 @@ public class FCLSwitch extends SwitchCompat {
         }
 
         return visibilityProperty;
+    }
+
+    public final void setCheckValue(boolean isChecked) {
+        checkProperty().set(isChecked);
+    }
+
+    public final boolean getCheckValue() {
+        return checkProperty == null || checkProperty.get();
+    }
+
+    public final BooleanProperty checkProperty() {
+        if (checkProperty == null) {
+            checkProperty = new BooleanPropertyBase() {
+
+                public void invalidated() {
+                    Schedulers.androidUIThread().execute(() -> {
+                        if (!fromUserOrSystem) {
+                            boolean isCheck = get();
+                            setChecked(isCheck);
+                        }
+                        fromUserOrSystem = false;
+                    });
+                }
+
+                public Object getBean() {
+                    return this;
+                }
+
+                public String getName() {
+                    return "check";
+                }
+            };
+        }
+
+        return checkProperty;
+    }
+
+    public final void setDisableValue(boolean disableValue) {
+        disableProperty().set(disableValue);
+    }
+
+    public final boolean getDisableValue() {
+        return disableProperty == null || disableProperty.get();
+    }
+
+    public final BooleanProperty disableProperty() {
+        if (disableProperty == null) {
+            disableProperty = new BooleanPropertyBase() {
+
+                public void invalidated() {
+                    Schedulers.androidUIThread().execute(() -> {
+                        boolean disable = get();
+                        setEnabled(!disable);
+                    });
+                }
+
+                public Object getBean() {
+                    return this;
+                }
+
+                public String getName() {
+                    return "disable";
+                }
+            };
+        }
+
+        return disableProperty;
     }
 }

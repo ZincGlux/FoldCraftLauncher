@@ -2,6 +2,7 @@ package com.tungsten.fcllibrary.component.view;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.util.AttributeSet;
 
@@ -14,11 +15,16 @@ import com.tungsten.fclcore.fakefx.beans.property.BooleanPropertyBase;
 import com.tungsten.fclcore.fakefx.beans.property.IntegerProperty;
 import com.tungsten.fclcore.fakefx.beans.property.IntegerPropertyBase;
 import com.tungsten.fclcore.task.Schedulers;
+import com.tungsten.fcllibrary.R;
 import com.tungsten.fcllibrary.component.theme.ThemeEngine;
 
 public class FCLCheckBox extends AppCompatCheckBox {
 
+    private boolean autoTint;
+    private boolean fromUserOrSystem = false;
     private BooleanProperty visibilityProperty;
+    private BooleanProperty checkProperty;
+    private BooleanProperty disableProperty;
 
     private final IntegerProperty theme = new IntegerPropertyBase() {
 
@@ -38,6 +44,9 @@ public class FCLCheckBox extends AppCompatCheckBox {
                     Color.GRAY
             };
             setButtonTintList(new ColorStateList(state, color));
+            if (autoTint) {
+                setTextColor(ThemeEngine.getInstance().getTheme().getAutoTint());
+            }
         }
 
         @Override
@@ -51,6 +60,14 @@ public class FCLCheckBox extends AppCompatCheckBox {
         }
     };
 
+    public void addCheckedChangeListener() {
+        setOnCheckedChangeListener((compoundButton, b) -> {
+            fromUserOrSystem = true;
+            checkProperty().set(b);
+            fromUserOrSystem = false;
+        });
+    }
+
     public FCLCheckBox(@NonNull Context context) {
         super(context);
         theme.bind(ThemeEngine.getInstance().getTheme().colorProperty());
@@ -58,12 +75,26 @@ public class FCLCheckBox extends AppCompatCheckBox {
 
     public FCLCheckBox(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+        TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.FCLCheckBox);
+        autoTint = typedArray.getBoolean(R.styleable.FCLCheckBox_auto_hint_tint, false);
+        typedArray.recycle();
         theme.bind(ThemeEngine.getInstance().getTheme().colorProperty());
     }
 
     public FCLCheckBox(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.FCLCheckBox);
+        autoTint = typedArray.getBoolean(R.styleable.FCLCheckBox_auto_hint_tint, false);
+        typedArray.recycle();
         theme.bind(ThemeEngine.getInstance().getTheme().colorProperty());
+    }
+
+    public void setAutoTint(boolean autoTint) {
+        this.autoTint = autoTint;
+    }
+
+    public boolean isAutoTint() {
+        return autoTint;
     }
 
     public final void setVisibilityValue(boolean visibility) {
@@ -96,5 +127,71 @@ public class FCLCheckBox extends AppCompatCheckBox {
         }
 
         return visibilityProperty;
+    }
+
+    public final void setCheckValue(boolean isChecked) {
+        checkProperty().set(isChecked);
+    }
+
+    public final boolean getCheckValue() {
+        return checkProperty == null || checkProperty.get();
+    }
+
+    public final BooleanProperty checkProperty() {
+        if (checkProperty == null) {
+            checkProperty = new BooleanPropertyBase() {
+
+                public void invalidated() {
+                    Schedulers.androidUIThread().execute(() -> {
+                        if (!fromUserOrSystem) {
+                            boolean isCheck = get();
+                            setChecked(isCheck);
+                        }
+                    });
+                }
+
+                public Object getBean() {
+                    return this;
+                }
+
+                public String getName() {
+                    return "check";
+                }
+            };
+        }
+
+        return checkProperty;
+    }
+
+    public final void setDisableValue(boolean disableValue) {
+        disableProperty().set(disableValue);
+    }
+
+    public final boolean getDisableValue() {
+        return disableProperty == null || disableProperty.get();
+    }
+
+    public final BooleanProperty disableProperty() {
+        if (disableProperty == null) {
+            disableProperty = new BooleanPropertyBase() {
+
+                public void invalidated() {
+                    Schedulers.androidUIThread().execute(() -> {
+                        boolean disable = get();
+                        setEnabled(!disable);
+                    });
+                }
+
+                public Object getBean() {
+                    return this;
+                }
+
+                public String getName() {
+                    return "disable";
+                }
+            };
+        }
+
+        return disableProperty;
     }
 }
